@@ -1,4 +1,5 @@
 const defaultCategories = ["買い物", "アイディア", "タスク", "連絡"];
+const ADD_CATEGORY_VALUE = "__add_new_category__";
 
 const state = {
   items: [],
@@ -13,9 +14,6 @@ const refs = {
   addForm: document.getElementById("add-form"),
   itemInput: document.getElementById("item-input"),
   addMessage: document.getElementById("add-message"),
-  toggleCategoryForm: document.getElementById("toggle-category-form"),
-  categoryForm: document.getElementById("category-form"),
-  categoryInput: document.getElementById("category-input"),
   itemsList: document.getElementById("items-list")
 };
 
@@ -106,9 +104,32 @@ function renderItems() {
       select.append(option);
     }
 
+    const addCategory = document.createElement("option");
+    addCategory.value = ADD_CATEGORY_VALUE;
+    addCategory.textContent = "＋分類を追加";
+    select.append(addCategory);
+
     select.value = item.category || "";
     select.addEventListener("change", (e) => {
-      item.category = e.target.value;
+      const selected = e.target.value;
+      if (selected === ADD_CATEGORY_VALUE) {
+        const newCategoryRaw = window.prompt("新しい分類名を入力してください");
+        const newCategory = newCategoryRaw ? newCategoryRaw.trim() : "";
+        if (!newCategory) {
+          select.value = item.category || "";
+          return;
+        }
+
+        if (!state.categories.includes(newCategory)) {
+          state.categories.push(newCategory);
+        }
+        item.category = newCategory;
+        save();
+        renderItems();
+        return;
+      }
+
+      item.category = selected;
       save();
     });
 
@@ -121,14 +142,6 @@ refs.showInbox.addEventListener("click", () => setView("inbox"));
 refs.showManage.addEventListener("click", () => {
   setView("manage");
   renderItems();
-});
-
-refs.toggleCategoryForm.addEventListener("click", () => {
-  const isHidden = refs.categoryForm.classList.toggle("hidden");
-  const isOpen = !isHidden;
-  refs.toggleCategoryForm.setAttribute("aria-expanded", String(isOpen));
-  refs.toggleCategoryForm.textContent = isOpen ? "分類追加を閉じる" : "分類を追加";
-  if (isOpen) refs.categoryInput.focus();
 });
 
 refs.addForm.addEventListener("submit", (e) => {
@@ -145,25 +158,6 @@ refs.addForm.addEventListener("submit", (e) => {
 
   refs.itemInput.value = "";
   refs.addMessage.textContent = "項目を追加しました。分類画面でジャンル分けできます。";
-  save();
-  renderItems();
-});
-
-refs.categoryForm.addEventListener("submit", (e) => {
-  e.preventDefault();
-  const category = refs.categoryInput.value.trim();
-  if (!category) return;
-
-  if (state.categories.includes(category)) {
-    refs.categoryInput.value = "";
-    return;
-  }
-
-  state.categories.push(category);
-  refs.categoryInput.value = "";
-  refs.categoryForm.classList.add("hidden");
-  refs.toggleCategoryForm.setAttribute("aria-expanded", "false");
-  refs.toggleCategoryForm.textContent = "分類を追加";
   save();
   renderItems();
 });
