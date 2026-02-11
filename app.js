@@ -10,7 +10,6 @@ const refs = {
   manageView: document.getElementById("manage-view"),
   showInbox: document.getElementById("show-inbox"),
   showManage: document.getElementById("show-manage"),
-  toggleItemForm: document.getElementById("toggle-item-form"),
   addForm: document.getElementById("add-form"),
   itemInput: document.getElementById("item-input"),
   addMessage: document.getElementById("add-message"),
@@ -124,14 +123,6 @@ refs.showManage.addEventListener("click", () => {
   renderItems();
 });
 
-refs.toggleItemForm.addEventListener("click", () => {
-  const isHidden = refs.addForm.classList.toggle("hidden");
-  const isOpen = !isHidden;
-  refs.toggleItemForm.setAttribute("aria-expanded", String(isOpen));
-  refs.toggleItemForm.textContent = isOpen ? "項目追加を閉じる" : "項目を追加";
-  if (isOpen) refs.itemInput.focus();
-});
-
 refs.toggleCategoryForm.addEventListener("click", () => {
   const isHidden = refs.categoryForm.classList.toggle("hidden");
   const isOpen = !isHidden;
@@ -153,10 +144,7 @@ refs.addForm.addEventListener("submit", (e) => {
   });
 
   refs.itemInput.value = "";
-  refs.addMessage.textContent = "項目を追加しました。";
-  refs.addForm.classList.add("hidden");
-  refs.toggleItemForm.setAttribute("aria-expanded", "false");
-  refs.toggleItemForm.textContent = "項目を追加";
+  refs.addMessage.textContent = "項目を追加しました。分類画面でジャンル分けできます。";
   save();
   renderItems();
 });
