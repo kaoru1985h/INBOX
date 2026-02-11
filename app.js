@@ -10,9 +10,11 @@ const refs = {
   manageView: document.getElementById("manage-view"),
   showInbox: document.getElementById("show-inbox"),
   showManage: document.getElementById("show-manage"),
+  toggleItemForm: document.getElementById("toggle-item-form"),
   addForm: document.getElementById("add-form"),
   itemInput: document.getElementById("item-input"),
   addMessage: document.getElementById("add-message"),
+  toggleCategoryForm: document.getElementById("toggle-category-form"),
   categoryForm: document.getElementById("category-form"),
   categoryInput: document.getElementById("category-input"),
   itemsList: document.getElementById("items-list")
@@ -122,6 +124,22 @@ refs.showManage.addEventListener("click", () => {
   renderItems();
 });
 
+refs.toggleItemForm.addEventListener("click", () => {
+  const isHidden = refs.addForm.classList.toggle("hidden");
+  const isOpen = !isHidden;
+  refs.toggleItemForm.setAttribute("aria-expanded", String(isOpen));
+  refs.toggleItemForm.textContent = isOpen ? "項目追加を閉じる" : "項目を追加";
+  if (isOpen) refs.itemInput.focus();
+});
+
+refs.toggleCategoryForm.addEventListener("click", () => {
+  const isHidden = refs.categoryForm.classList.toggle("hidden");
+  const isOpen = !isHidden;
+  refs.toggleCategoryForm.setAttribute("aria-expanded", String(isOpen));
+  refs.toggleCategoryForm.textContent = isOpen ? "分類追加を閉じる" : "分類を追加";
+  if (isOpen) refs.categoryInput.focus();
+});
+
 refs.addForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const text = refs.itemInput.value.trim();
@@ -135,7 +153,10 @@ refs.addForm.addEventListener("submit", (e) => {
   });
 
   refs.itemInput.value = "";
-  refs.addMessage.textContent = "項目を追加しました。分類画面でジャンル分けできます。";
+  refs.addMessage.textContent = "項目を追加しました。";
+  refs.addForm.classList.add("hidden");
+  refs.toggleItemForm.setAttribute("aria-expanded", "false");
+  refs.toggleItemForm.textContent = "項目を追加";
   save();
   renderItems();
 });
@@ -152,6 +173,9 @@ refs.categoryForm.addEventListener("submit", (e) => {
 
   state.categories.push(category);
   refs.categoryInput.value = "";
+  refs.categoryForm.classList.add("hidden");
+  refs.toggleCategoryForm.setAttribute("aria-expanded", "false");
+  refs.toggleCategoryForm.textContent = "分類を追加";
   save();
   renderItems();
 });

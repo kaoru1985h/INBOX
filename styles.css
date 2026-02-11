@@ -119,6 +119,18 @@ select:focus {
   background: #11151d;
 }
 
+.category-toggle {
+  width: auto;
+}
+
+#category-form {
+  margin-top: 0.75rem;
+}
+
+#add-form {
+  margin-top: 0.75rem;
+}
+
 .items {
   list-style: none;
   margin: 0;

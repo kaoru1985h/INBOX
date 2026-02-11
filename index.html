@@ -18,18 +18,7 @@
 
     <section id="inbox-view" class="view">
       <h2>入力画面</h2>
-      <p class="desc">思いついた言葉を追加してください。</p>
-      <form id="add-form" class="row">
-        <input
-          id="item-input"
-          type="text"
-          placeholder="例: 牛乳を買う"
-          autocomplete="off"
-          required
-        />
-        <button type="submit">追加</button>
-      </form>
-      <p id="add-message" class="message" aria-live="polite"></p>
+      <p class="desc">項目追加は「分類」画面から行えます。</p>
     </section>
 
     <section id="manage-view" class="view hidden">
@@ -37,8 +26,27 @@
       <p class="desc">項目をジャンル分けできます。</p>
 
       <div class="category-box">
-        <h3>ジャンル追加</h3>
-        <form id="category-form" class="row">
+        <button id="toggle-item-form" class="category-toggle" type="button" aria-expanded="false">
+          項目を追加
+        </button>
+        <form id="add-form" class="row hidden">
+          <input
+            id="item-input"
+            type="text"
+            placeholder="例: 牛乳を買う"
+            autocomplete="off"
+            required
+          />
+          <button type="submit">追加</button>
+        </form>
+        <p id="add-message" class="message" aria-live="polite"></p>
+      </div>
+
+      <div class="category-box">
+        <button id="toggle-category-form" class="category-toggle" type="button" aria-expanded="false">
+          分類を追加
+        </button>
+        <form id="category-form" class="row hidden">
           <input
             id="category-input"
             type="text"
