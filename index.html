@@ -35,6 +35,14 @@
     <section id="manage-view" class="view hidden">
       <h2>分類画面</h2>
       <p class="desc">項目をジャンル分けできます。</p>
+      <div class="manage-toolbar">
+        <label for="sort-mode">並び順</label>
+        <select id="sort-mode">
+          <option value="newest">追加順</option>
+          <option value="oldest">古い順</option>
+          <option value="category">ジャンル毎</option>
+        </select>
+      </div>
 
       <ul id="items-list" class="items"></ul>
     </section>

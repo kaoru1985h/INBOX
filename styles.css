@@ -111,6 +111,21 @@ select:focus {
   margin-top: 0.7rem;
 }
 
+.manage-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+
+.manage-toolbar label {
+  color: var(--muted);
+}
+
+.manage-toolbar select {
+  width: 210px;
+}
+
 .items {
   list-style: none;
   margin: 0;
@@ -147,6 +162,14 @@ select:focus {
   text-align: center;
 }
 
+.group-title {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .hidden {
   display: none;
 }
@@ -163,5 +186,14 @@ select:focus {
 
   .item {
     grid-template-columns: 1fr;
+  }
+
+  .manage-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .manage-toolbar select {
+    width: 100%;
   }
 }
