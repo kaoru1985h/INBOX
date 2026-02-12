@@ -25,6 +25,7 @@ const refs = {
 };
 
 const STORAGE_KEY = "inbox_app_v1";
+const expandedItemIds = new Set();
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -35,7 +36,16 @@ function load() {
   if (!raw) return;
   try {
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed.items)) state.items = parsed.items;
+    if (Array.isArray(parsed.items)) {
+      state.items = parsed.items.map((item) => ({
+        id: typeof item.id === "string" ? item.id : crypto.randomUUID(),
+        text: typeof item.text === "string" ? item.text : "",
+        category: typeof item.category === "string" ? item.category : "",
+        createdAt: item.createdAt || new Date().toISOString(),
+        memo: typeof item.memo === "string" ? item.memo : "",
+        dueAt: typeof item.dueAt === "string" ? item.dueAt : ""
+      }));
+    }
     if (Array.isArray(parsed.categories) && parsed.categories.length > 0) {
       const merged = [...defaultCategories];
       for (const c of parsed.categories) {
@@ -82,9 +92,35 @@ function sortByDateAsc(a, b) {
   return new Date(a.createdAt) - new Date(b.createdAt);
 }
 
+function formatGoogleDate(date) {
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getUTCFullYear()}${pad(date.getUTCMonth() + 1)}${pad(date.getUTCDate())}T${pad(date.getUTCHours())}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}Z`;
+}
+
+function buildGoogleCalendarUrl(item) {
+  const now = new Date();
+  const start = item.dueAt ? new Date(item.dueAt) : new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0);
+  if (Number.isNaN(start.getTime())) return "";
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: item.text || "IN BOX 項目",
+    details: item.memo || "",
+    dates: `${formatGoogleDate(start)}/${formatGoogleDate(end)}`
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function openGoogleCalendar(item) {
+  const url = buildGoogleCalendarUrl(item);
+  if (!url) return;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 function createItemElement(item) {
   const li = document.createElement("li");
   li.className = "item";
+  const isExpanded = expandedItemIds.has(item.id);
 
   const info = document.createElement("div");
   const text = document.createElement("div");
@@ -96,6 +132,45 @@ function createItemElement(item) {
   meta.textContent = `追加: ${formatDate(item.createdAt)}`;
 
   info.append(text, meta);
+
+  const header = document.createElement("div");
+  header.className = "item-header";
+
+  const actions = document.createElement("div");
+  actions.className = "item-actions";
+
+  const toggleButton = document.createElement("button");
+  toggleButton.type = "button";
+  toggleButton.className = "detail-toggle";
+  toggleButton.setAttribute("aria-expanded", String(isExpanded));
+  toggleButton.textContent = isExpanded ? "詳細を閉じる" : "詳細";
+  toggleButton.addEventListener("click", () => {
+    if (expandedItemIds.has(item.id)) {
+      expandedItemIds.delete(item.id);
+    } else {
+      expandedItemIds.add(item.id);
+    }
+    renderItems();
+  });
+  actions.append(toggleButton);
+
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.className = "complete-btn";
+  deleteButton.textContent = "完了して削除";
+  deleteButton.addEventListener("click", () => {
+    state.items = state.items.filter((target) => target.id !== item.id);
+    expandedItemIds.delete(item.id);
+    save();
+    renderItems();
+  });
+  actions.append(deleteButton);
+
+  header.append(info, actions);
+
+  const details = document.createElement("div");
+  details.className = "item-details";
+  details.classList.toggle("hidden", !isExpanded);
 
   const select = document.createElement("select");
   select.setAttribute("aria-label", "ジャンル");
@@ -142,7 +217,33 @@ function createItemElement(item) {
     renderItems();
   });
 
-  li.append(info, select);
+  const controls = document.createElement("div");
+  controls.className = "item-controls";
+
+  controls.append(select);
+
+  const memoInput = document.createElement("textarea");
+  memoInput.className = "memo-input";
+  memoInput.rows = 2;
+  memoInput.placeholder = "メモ";
+  memoInput.value = item.memo || "";
+  memoInput.addEventListener("change", (e) => {
+    item.memo = e.target.value;
+    save();
+  });
+  controls.append(memoInput);
+
+  const calendarButton = document.createElement("button");
+  calendarButton.type = "button";
+  calendarButton.className = "calendar-btn";
+  calendarButton.textContent = "Googleカレンダーへ";
+  calendarButton.addEventListener("click", () => {
+    openGoogleCalendar(item);
+  });
+  controls.append(calendarButton);
+  details.append(controls);
+
+  li.append(header, details);
   return li;
 }
 
@@ -234,7 +335,9 @@ refs.addForm.addEventListener("submit", (e) => {
     id: crypto.randomUUID(),
     text,
     category: "",
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    memo: "",
+    dueAt: ""
   });
 
   refs.itemInput.value = "";
