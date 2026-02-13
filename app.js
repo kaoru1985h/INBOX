@@ -26,6 +26,7 @@ const refs = {
 
 const STORAGE_KEY = "inbox_app_v1";
 const expandedItemIds = new Set();
+let addMessageTimer;
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -341,7 +342,11 @@ refs.addForm.addEventListener("submit", (e) => {
   });
 
   refs.itemInput.value = "";
-  refs.addMessage.textContent = "項目を追加しました。分類画面でジャンル分けできます。";
+  refs.addMessage.textContent = "項目を追加しました。";
+  window.clearTimeout(addMessageTimer);
+  addMessageTimer = window.setTimeout(() => {
+    refs.addMessage.textContent = "";
+  }, 2500);
   save();
   renderItems();
 });
