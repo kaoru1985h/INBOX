@@ -1,5 +1,11 @@
 const defaultCategories = ["買い物", "アイディア", "タスク", "連絡"];
-const ADD_CATEGORY_VALUE = "__add_new_category__";
+const CATEGORY_ACTION_VALUES = {
+  add: "__category_action_add__",
+  moveUp: "__category_action_move_up__",
+  moveDown: "__category_action_move_down__",
+  rename: "__category_action_rename__",
+  remove: "__category_action_remove__"
+};
 const SORT_MODES = {
   newest: "newest",
   oldest: "oldest",
@@ -91,6 +97,50 @@ function sortByDateDesc(a, b) {
 
 function sortByDateAsc(a, b) {
   return new Date(a.createdAt) - new Date(b.createdAt);
+}
+
+function addCategory(rawName) {
+  const name = rawName ? rawName.trim() : "";
+  if (!name) return null;
+  if (state.categories.includes(name)) return null;
+  state.categories.push(name);
+  return name;
+}
+
+function moveCategory(category, direction) {
+  const index = state.categories.indexOf(category);
+  if (index < 0) return false;
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= state.categories.length) return false;
+  [state.categories[index], state.categories[targetIndex]] = [state.categories[targetIndex], state.categories[index]];
+  return true;
+}
+
+function renameCategory(oldName, newRawName) {
+  const newName = newRawName ? newRawName.trim() : "";
+  if (!newName || oldName === newName) return false;
+  if (state.categories.includes(newName)) return false;
+  const index = state.categories.indexOf(oldName);
+  if (index < 0) return false;
+  state.categories[index] = newName;
+  for (const item of state.items) {
+    if (item.category === oldName) {
+      item.category = newName;
+    }
+  }
+  return true;
+}
+
+function removeCategory(category) {
+  const index = state.categories.indexOf(category);
+  if (index < 0) return false;
+  state.categories.splice(index, 1);
+  for (const item of state.items) {
+    if (item.category === category) {
+      item.category = "";
+    }
+  }
+  return true;
 }
 
 function formatGoogleDate(date) {
@@ -188,26 +238,102 @@ function createItemElement(item) {
     select.append(option);
   }
 
-  const addCategory = document.createElement("option");
-  addCategory.value = ADD_CATEGORY_VALUE;
-  addCategory.textContent = "＋分類を追加";
-  select.append(addCategory);
+  const addCategoryOption = document.createElement("option");
+  addCategoryOption.value = CATEGORY_ACTION_VALUES.add;
+  addCategoryOption.textContent = "＋分類を追加";
+  select.append(addCategoryOption);
+
+  const moveUpOption = document.createElement("option");
+  moveUpOption.value = CATEGORY_ACTION_VALUES.moveUp;
+  moveUpOption.textContent = "分類を上へ移動";
+  select.append(moveUpOption);
+
+  const moveDownOption = document.createElement("option");
+  moveDownOption.value = CATEGORY_ACTION_VALUES.moveDown;
+  moveDownOption.textContent = "分類を下へ移動";
+  select.append(moveDownOption);
+
+  const renameOption = document.createElement("option");
+  renameOption.value = CATEGORY_ACTION_VALUES.rename;
+  renameOption.textContent = "分類名を変更";
+  select.append(renameOption);
+
+  const removeOption = document.createElement("option");
+  removeOption.value = CATEGORY_ACTION_VALUES.remove;
+  removeOption.textContent = "分類を削除";
+  select.append(removeOption);
 
   select.value = item.category || "";
   select.addEventListener("change", (e) => {
     const selected = e.target.value;
-    if (selected === ADD_CATEGORY_VALUE) {
+    if (selected === CATEGORY_ACTION_VALUES.add) {
       const newCategoryRaw = window.prompt("新しい分類名を入力してください");
-      const newCategory = newCategoryRaw ? newCategoryRaw.trim() : "";
+      const newCategory = addCategory(newCategoryRaw);
       if (!newCategory) {
+        window.alert("分類名が未入力か、すでに存在しています。");
         select.value = item.category || "";
         return;
       }
-
-      if (!state.categories.includes(newCategory)) {
-        state.categories.push(newCategory);
-      }
       item.category = newCategory;
+      save();
+      renderItems();
+      return;
+    }
+
+    if (selected === CATEGORY_ACTION_VALUES.moveUp) {
+      if (!item.category) {
+        window.alert("先に分類を選択してください。");
+        select.value = "";
+        return;
+      }
+      moveCategory(item.category, -1);
+      save();
+      renderItems();
+      return;
+    }
+
+    if (selected === CATEGORY_ACTION_VALUES.moveDown) {
+      if (!item.category) {
+        window.alert("先に分類を選択してください。");
+        select.value = "";
+        return;
+      }
+      moveCategory(item.category, 1);
+      save();
+      renderItems();
+      return;
+    }
+
+    if (selected === CATEGORY_ACTION_VALUES.rename) {
+      if (!item.category) {
+        window.alert("先に分類を選択してください。");
+        select.value = "";
+        return;
+      }
+      const renamed = renameCategory(item.category, window.prompt("新しい分類名を入力してください", item.category));
+      if (!renamed) {
+        window.alert("分類名を変更できませんでした。空欄または重複の可能性があります。");
+        select.value = item.category || "";
+        return;
+      }
+      save();
+      renderItems();
+      return;
+    }
+
+    if (selected === CATEGORY_ACTION_VALUES.remove) {
+      if (!item.category) {
+        window.alert("先に分類を選択してください。");
+        select.value = "";
+        return;
+      }
+      const targetCategory = item.category;
+      const confirmed = window.confirm(`分類「${targetCategory}」を削除しますか？\nこの分類の項目は未分類に戻ります。`);
+      if (!confirmed) {
+        select.value = item.category || "";
+        return;
+      }
+      removeCategory(targetCategory);
       save();
       renderItems();
       return;
