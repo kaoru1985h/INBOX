@@ -1,10 +1,6 @@
 const defaultCategories = ["買い物", "アイディア", "タスク", "連絡"];
 const CATEGORY_ACTION_VALUES = {
-  add: "__category_action_add__",
-  moveUp: "__category_action_move_up__",
-  moveDown: "__category_action_move_down__",
-  rename: "__category_action_rename__",
-  remove: "__category_action_remove__"
+  manage: "__category_action_manage__"
 };
 const SORT_MODES = {
   newest: "newest",
@@ -33,6 +29,10 @@ const refs = {
 const STORAGE_KEY = "inbox_app_v1";
 const expandedItemIds = new Set();
 let addMessageTimer;
+let categoryManagerDialog;
+let categoryListEl;
+let categoryAddInputEl;
+let draggedCategoryIndex = null;
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -107,15 +107,6 @@ function addCategory(rawName) {
   return name;
 }
 
-function moveCategory(category, direction) {
-  const index = state.categories.indexOf(category);
-  if (index < 0) return false;
-  const targetIndex = index + direction;
-  if (targetIndex < 0 || targetIndex >= state.categories.length) return false;
-  [state.categories[index], state.categories[targetIndex]] = [state.categories[targetIndex], state.categories[index]];
-  return true;
-}
-
 function renameCategory(oldName, newRawName) {
   const newName = newRawName ? newRawName.trim() : "";
   if (!newName || oldName === newName) return false;
@@ -141,6 +132,159 @@ function removeCategory(category) {
     }
   }
   return true;
+}
+
+function ensureCategoryManagerDialog() {
+  if (categoryManagerDialog) return;
+
+  const dialog = document.createElement("dialog");
+  dialog.className = "category-dialog";
+  dialog.innerHTML = `
+    <form method="dialog" class="category-dialog__panel">
+      <div class="category-dialog__header">
+        <h3>分類を管理</h3>
+        <button class="category-dialog__close" value="cancel" type="submit" aria-label="閉じる">閉じる</button>
+      </div>
+      <p class="category-dialog__desc">ドラッグで順序変更、右側ボタンで編集・削除できます。</p>
+      <ul class="category-list" id="category-list"></ul>
+      <div class="category-add">
+        <input id="category-add-input" type="text" placeholder="新しい分類名" autocomplete="off" />
+        <button id="category-add-button" type="button">追加</button>
+      </div>
+    </form>
+  `;
+
+  document.body.append(dialog);
+  categoryManagerDialog = dialog;
+  categoryListEl = dialog.querySelector("#category-list");
+  categoryAddInputEl = dialog.querySelector("#category-add-input");
+  const addButton = dialog.querySelector("#category-add-button");
+
+  addButton.addEventListener("click", () => {
+    const added = addCategory(categoryAddInputEl.value);
+    if (!added) {
+      window.alert("分類名が未入力か、すでに存在しています。");
+      return;
+    }
+    categoryAddInputEl.value = "";
+    save();
+    renderCategoryManager();
+    renderItems();
+  });
+
+  categoryAddInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addButton.click();
+    }
+  });
+}
+
+function moveCategoryByIndex(fromIndex, toIndex) {
+  if (fromIndex === toIndex) return;
+  if (fromIndex < 0 || toIndex < 0) return;
+  if (fromIndex >= state.categories.length || toIndex >= state.categories.length) return;
+  const [moved] = state.categories.splice(fromIndex, 1);
+  state.categories.splice(toIndex, 0, moved);
+}
+
+function buildCategoryRow(category, index) {
+  const li = document.createElement("li");
+  li.className = "category-row";
+  li.draggable = true;
+  li.dataset.index = String(index);
+
+  const label = document.createElement("span");
+  label.className = "category-row__label";
+  label.textContent = category;
+
+  const rowActions = document.createElement("div");
+  rowActions.className = "category-row__actions";
+
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "category-row__btn";
+  editButton.textContent = "編集";
+  editButton.addEventListener("click", () => {
+    const renamed = renameCategory(category, window.prompt("新しい分類名を入力してください", category));
+    if (!renamed) {
+      window.alert("分類名を変更できませんでした。空欄または重複の可能性があります。");
+      return;
+    }
+    save();
+    renderCategoryManager();
+    renderItems();
+  });
+
+  const deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.className = "category-row__btn danger";
+  deleteButton.textContent = "削除";
+  deleteButton.addEventListener("click", () => {
+    const confirmed = window.confirm(`分類「${category}」を削除しますか？\nこの分類の項目は未分類に戻ります。`);
+    if (!confirmed) return;
+    removeCategory(category);
+    save();
+    renderCategoryManager();
+    renderItems();
+  });
+
+  rowActions.append(editButton, deleteButton);
+  li.append(label, rowActions);
+
+  li.addEventListener("dragstart", (e) => {
+    draggedCategoryIndex = Number(li.dataset.index);
+    li.classList.add("dragging");
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", li.dataset.index);
+    }
+  });
+
+  li.addEventListener("dragend", () => {
+    draggedCategoryIndex = null;
+    li.classList.remove("dragging");
+    for (const row of categoryListEl.querySelectorAll(".category-row")) {
+      row.classList.remove("drop-target");
+    }
+  });
+
+  li.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    li.classList.add("drop-target");
+  });
+
+  li.addEventListener("dragleave", () => {
+    li.classList.remove("drop-target");
+  });
+
+  li.addEventListener("drop", (e) => {
+    e.preventDefault();
+    li.classList.remove("drop-target");
+    const from = draggedCategoryIndex;
+    const to = Number(li.dataset.index);
+    if (from === null || Number.isNaN(to)) return;
+    moveCategoryByIndex(from, to);
+    save();
+    renderCategoryManager();
+    renderItems();
+  });
+
+  return li;
+}
+
+function renderCategoryManager() {
+  if (!categoryListEl) return;
+  categoryListEl.innerHTML = "";
+  for (const [index, category] of state.categories.entries()) {
+    categoryListEl.append(buildCategoryRow(category, index));
+  }
+}
+
+function openCategoryManager() {
+  ensureCategoryManagerDialog();
+  renderCategoryManager();
+  categoryManagerDialog.showModal();
 }
 
 function formatGoogleDate(date) {
@@ -238,104 +382,17 @@ function createItemElement(item) {
     select.append(option);
   }
 
-  const addCategoryOption = document.createElement("option");
-  addCategoryOption.value = CATEGORY_ACTION_VALUES.add;
-  addCategoryOption.textContent = "＋分類を追加";
-  select.append(addCategoryOption);
-
-  const moveUpOption = document.createElement("option");
-  moveUpOption.value = CATEGORY_ACTION_VALUES.moveUp;
-  moveUpOption.textContent = "分類を上へ移動";
-  select.append(moveUpOption);
-
-  const moveDownOption = document.createElement("option");
-  moveDownOption.value = CATEGORY_ACTION_VALUES.moveDown;
-  moveDownOption.textContent = "分類を下へ移動";
-  select.append(moveDownOption);
-
-  const renameOption = document.createElement("option");
-  renameOption.value = CATEGORY_ACTION_VALUES.rename;
-  renameOption.textContent = "分類名を変更";
-  select.append(renameOption);
-
-  const removeOption = document.createElement("option");
-  removeOption.value = CATEGORY_ACTION_VALUES.remove;
-  removeOption.textContent = "分類を削除";
-  select.append(removeOption);
+  const manageOption = document.createElement("option");
+  manageOption.value = CATEGORY_ACTION_VALUES.manage;
+  manageOption.textContent = "＋分類を整理";
+  select.append(manageOption);
 
   select.value = item.category || "";
   select.addEventListener("change", (e) => {
     const selected = e.target.value;
-    if (selected === CATEGORY_ACTION_VALUES.add) {
-      const newCategoryRaw = window.prompt("新しい分類名を入力してください");
-      const newCategory = addCategory(newCategoryRaw);
-      if (!newCategory) {
-        window.alert("分類名が未入力か、すでに存在しています。");
-        select.value = item.category || "";
-        return;
-      }
-      item.category = newCategory;
-      save();
-      renderItems();
-      return;
-    }
-
-    if (selected === CATEGORY_ACTION_VALUES.moveUp) {
-      if (!item.category) {
-        window.alert("先に分類を選択してください。");
-        select.value = "";
-        return;
-      }
-      moveCategory(item.category, -1);
-      save();
-      renderItems();
-      return;
-    }
-
-    if (selected === CATEGORY_ACTION_VALUES.moveDown) {
-      if (!item.category) {
-        window.alert("先に分類を選択してください。");
-        select.value = "";
-        return;
-      }
-      moveCategory(item.category, 1);
-      save();
-      renderItems();
-      return;
-    }
-
-    if (selected === CATEGORY_ACTION_VALUES.rename) {
-      if (!item.category) {
-        window.alert("先に分類を選択してください。");
-        select.value = "";
-        return;
-      }
-      const renamed = renameCategory(item.category, window.prompt("新しい分類名を入力してください", item.category));
-      if (!renamed) {
-        window.alert("分類名を変更できませんでした。空欄または重複の可能性があります。");
-        select.value = item.category || "";
-        return;
-      }
-      save();
-      renderItems();
-      return;
-    }
-
-    if (selected === CATEGORY_ACTION_VALUES.remove) {
-      if (!item.category) {
-        window.alert("先に分類を選択してください。");
-        select.value = "";
-        return;
-      }
-      const targetCategory = item.category;
-      const confirmed = window.confirm(`分類「${targetCategory}」を削除しますか？\nこの分類の項目は未分類に戻ります。`);
-      if (!confirmed) {
-        select.value = item.category || "";
-        return;
-      }
-      removeCategory(targetCategory);
-      save();
-      renderItems();
+    if (selected === CATEGORY_ACTION_VALUES.manage) {
+      openCategoryManager();
+      select.value = item.category || "";
       return;
     }
 
