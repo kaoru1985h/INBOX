@@ -123,6 +123,7 @@ textarea:focus {
 
 .manage-toolbar label {
   color: var(--muted);
+  font-size: 1.1rem;
 }
 
 .manage-toolbar select {
