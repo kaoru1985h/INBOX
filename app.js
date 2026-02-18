@@ -26,7 +26,7 @@ const refs = {
   itemsList: document.getElementById("items-list")
 };
 
-const STORAGE_KEY = "inbox_app_v1";
+const STORAGE_KEY = "inbox_app_v2";
 const expandedItemIds = new Set();
 let addMessageTimer;
 let categoryManagerDialog;
